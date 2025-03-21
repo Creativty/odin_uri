@@ -6,7 +6,7 @@ import "core:strings"
 // RFC3986		Uniform Resource Identifier (URI): Generic Syntax
 // Reference:	  https://datatracker.ietf.org/doc/html/rfc3986
 
-TLDs :: #load("tlds.txt", string)
+// TLDs :: #load("tlds.txt", string)
 
 URI :: struct {
 	scheme: string,
