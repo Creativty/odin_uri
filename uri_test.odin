@@ -3,13 +3,13 @@ package uri
 import "core:log"
 import "core:testing"
 
-URI_Expect :: struct {
+Parse_Expect :: struct {
 	text: string,
 	ok: bool,
 	uri: URI,
 }
 
-url_tests := [?]URI_Expect{
+uri_tests := [?]Parse_Expect{
 	{ "", true, { } },
 	{ "tel:+1-816-555-1212", true, { scheme = "tel", opaque = "+1-816-555-1212" } },
 	{ "https://youtube.com:443/watch?v=3b3f9087a", true, { scheme = "https", host = "youtube.com", port = "443", path = "/watch", query = "v=3b3f9087a" }, },
@@ -87,8 +87,8 @@ url_tests := [?]URI_Expect{
 }
 
 @(test)
-test_parse_list :: proc(t: ^testing.T) {
-	for reference in url_tests {
+test_parse :: proc(t: ^testing.T) {
+	for reference in uri_tests {
 		uri, ok := parse(reference.text)
 		defer destroy(uri)
 
@@ -101,5 +101,36 @@ test_parse_list :: proc(t: ^testing.T) {
 		testing.expect_value(t, uri.opaque, reference.uri.opaque)
 		testing.expect_value(t, uri.query, reference.uri.query)
 		testing.expect_value(t, uri.fragment, reference.uri.fragment)
+	}
+}
+
+Resolve_Path_Expect :: struct {
+	base: string,
+	ref: string,
+	expected: string,
+}
+
+resolve_path_tests := [?]Resolve_Path_Expect{
+	{ "a/b", ".", "/a/" },
+	{ "a/b", "c", "/a/c" },
+	{ "a/b", "..", "/" },
+	{ "a/", "..", "/" },
+	{ "a/", "../..", "/" },
+	{ "a/b/c", "..", "/a/" },
+	{ "a/b/c", "../d", "/a/d" },
+	{ "a/b/c", ".././d", "/a/d" },
+	{ "a/b", "./..", "/" },
+	{ "a/./b", ".", "/a/" },
+	{ "a/../", ".", "/" },
+	{ "a/.././b", "c", "/c" },
+}
+
+@(test)
+test_resolve_path :: proc(t: ^testing.T) {
+	for test in resolve_path_tests {
+		path := resolve_path(test.base, test.ref)
+		defer delete(path)
+
+		if !testing.expect_value(t, test.expected, path) do log.infof("case :: %v", test)
 	}
 }

@@ -172,8 +172,128 @@ parse :: proc(text: string) -> (uri: URI, ok: bool) {
 	return uri, true
 }
 
-parse_reference :: proc(reference: URI, text: string) -> (uri: URI, ok: bool) {
-	return uri, false
+parse_reference :: proc(base: URI, text: string) -> (uri: URI, ok: bool) {
+	ref := parse(text) or_return
+	defer destroy(ref)
+
+	uri = resolve_reference(base, ref)
+	return
+}
+
+resolve_reference :: proc(base: URI, ref: URI) -> (uri: URI) {
+	uri = clone(base)
+	if ref.scheme == "" {
+		delete(uri.scheme)
+
+		uri.scheme = strings.clone(base.scheme)
+	}
+
+	if ref.scheme != "" || ref.host != "" || ref.userinfo != "" {
+		delete(uri.path)
+
+		uri.path = resolve_path(ref.path, "")
+		return uri
+	}
+
+	if ref.opaque != "" {
+		delete(uri.host)
+		delete(uri.path)
+		delete(uri.userinfo)
+
+		uri.host     = strings.clone("")
+		uri.port     = strings.clone("")
+		uri.userinfo = strings.clone("")
+	}
+
+	if ref.path == "" && ref.query == "" {
+		delete(uri.query)
+
+		uri.query = strings.clone("")
+		if ref.fragment == "" {
+			delete(uri.fragment)
+
+			uri.fragment = strings.clone(base.fragment)
+		}
+	}
+
+	delete(uri.path)
+	delete(uri.host)
+	delete(uri.userinfo)
+
+	uri.path = resolve_path(base.path, ref.path)
+	uri.host = strings.clone(base.host)
+	uri.userinfo = strings.clone(base.userinfo)
+	return uri
+}
+
+resolve_path :: proc(base: string, ref: string) -> (path: string) {
+	full: string
+
+	if ref == "" {
+		full = strings.clone(base)
+	} else if !strings.has_prefix(ref, "/") {
+		index_slash := strings.last_index(base, "/")
+		full = strings.join({ base[:index_slash+1], ref }, "")
+	} else {
+		full = strings.clone(ref)
+	}
+	if full == "" do return full
+	defer delete(full)
+
+	dest: strings.Builder
+	left: string
+	slash: string
+
+	strings.builder_init(&dest)
+	strings.write_byte(&dest, '/')
+	defer strings.builder_destroy(&dest)
+
+	first := true
+	right := full
+	contains_slash := true
+	for contains_slash {
+		left, slash, right = strings.partition(right, "/")
+		contains_slash = (slash == "/")
+		switch left {
+		case ".":
+			first = false
+			continue
+		case "..":
+			str := strings.to_string(dest)[1:]
+			index := strings.last_index_byte(str, '/')
+
+			strings.builder_reset(&dest)
+			strings.write_byte(&dest, '/')
+
+			if index >= 0 do strings.write_string(&dest, str[:index])
+			else do first = true
+		case:
+			if !first do strings.write_byte(&dest, '/')
+			first = false
+
+			strings.write_string(&dest, left)
+		}
+	}
+	if left == "." || left == ".." do strings.write_byte(&dest, '/')
+
+	path = strings.to_string(dest)
+	if len(path) > 1 && path[1] == '/' do path = path[1:]
+	return strings.clone(path)
+}
+
+clone :: proc(src: URI) -> (dst: URI) {
+	dst.scheme = strings.clone(src.scheme)
+
+	dst.userinfo = strings.clone(src.userinfo)
+	dst.host = strings.clone(src.host)
+	dst.port = strings.clone(src.port)
+	dst.path = strings.clone(src.path)
+	dst.opaque = strings.clone(src.opaque)
+
+	dst.query = strings.clone(src.query)
+	dst.fragment = strings.clone(src.fragment)
+
+	return
 }
 
 destroy :: proc(uri: URI) {
