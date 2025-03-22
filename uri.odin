@@ -1,6 +1,7 @@
 package uri
 
 import "core:log"
+import "core:mem"
 import "core:strings"
 
 // RFC3986		Uniform Resource Identifier (URI): Generic Syntax
@@ -294,6 +295,29 @@ clone :: proc(src: URI) -> (dst: URI) {
 	dst.fragment = strings.clone(src.fragment)
 
 	return
+}
+
+write :: proc(builder: ^strings.Builder, uri: URI, omit_scheme := false) {
+	// TODO(XENOBAS): Bubble up IO errors
+	if !omit_scheme do strings.write_string(builder, "gemini://")
+	if len(uri.userinfo) > 0 {
+		strings.write_string(builder, uri.userinfo)
+		strings.write_rune(builder, '@')
+	}
+	strings.write_string(builder, uri.host)
+	if len(uri.port) > 0 {
+		strings.write_rune(builder, ':')
+		strings.write_string(builder, uri.port)
+	}
+	strings.write_string(builder, uri.path)
+	if len(uri.query) > 0 {
+		strings.write_rune(builder, '?')
+		strings.write_string(builder, uri.query)
+	}
+	if len(uri.fragment) > 0 {
+		strings.write_rune(builder, '#')
+		strings.write_string(builder, uri.fragment)
+	}
 }
 
 destroy :: proc(uri: URI) {
